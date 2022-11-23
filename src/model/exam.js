@@ -6,6 +6,7 @@ const Exam = new Schema(
   {
     chuong: { type: String },
     lesson: { type: String, default: "" },
+    open: { type: Boolean, default: false },
     listQuestion: { type: Array, default: [] },
   },
   { timestamps: true }

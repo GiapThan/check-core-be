@@ -1,5 +1,6 @@
 const JWT = require("jsonwebtoken");
 const examModel = require("../model/exam");
+const userModel = require("../model/user");
 const signInExamModel = require("../model/signinExam");
 
 const accessKey = process.env.ACCESSKEY;
@@ -76,6 +77,13 @@ module.exports = {
   signInBaiTap: async (req, res) => {
     let payload = req.body;
     try {
+      let exam = await examModel.findOne({
+        lesson: payload.lesson,
+        chuong: payload.chuong,
+      });
+      if (!exam || exam.open === false) {
+        return res.json({ errCode: -1 });
+      }
       let newSignIn = await signInExamModel.updateOne(
         {
           chuong: payload.chuong,
@@ -84,15 +92,14 @@ module.exports = {
         },
         { listQuestion: payload.listQuestion }
       );
-      console.log("newwww", newSignIn);
       if (newSignIn.modifiedCount !== 0) {
         //update thanh coong
-        console.log("........updata thanh cong.........", newSignIn);
+        return res.json({ errCode: 0 });
       } else {
         //tao moi
         let data = await signInExamModel.create(payload);
         if (data) {
-          console.log("......tao moi thanh cong..........", data);
+          return res.json({ errCode: 0 });
         }
       }
     } catch (error) {
@@ -101,12 +108,77 @@ module.exports = {
     }
   },
 
+  changeOpen: async (req, res) => {
+    let token = req.headers.author;
+    let payload = req.body;
+    try {
+      let data = await verify(token);
+      console.log(payload, data);
+      if (data.role !== "00") return res.json({ errCode: -1 });
+      let result = await examModel.updateOne(
+        { lesson: payload.lesson, chuong: payload.chuong },
+        { open: payload.open }
+      );
+      if (result.modifiedCount !== 0) {
+        //thanh cong
+        return res.json({ errCode: 0 });
+      } else {
+        return res.json({ errCode: -2 });
+      }
+    } catch (error) {
+      return res.json({ errCode: -100 });
+    }
+  },
+
+  getBaiTapManage: async (req, res) => {
+    const params = req.params;
+    const token = req.headers.author;
+    try {
+      //verify
+      let data = await verify(token);
+      if (!data) return res.json({ errCode: -2, msg: "" });
+      ///
+      let exam = await examModel.findOne({
+        chuong: params.chuong,
+        lesson: params.lesson,
+      });
+      if (exam) {
+        return res.json({
+          errCode: 0,
+          data: {
+            open: exam.open,
+          },
+        });
+      } else {
+        res.json({ errCode: -1 });
+      }
+    } catch (error) {
+      console.log(error);
+      res.json({ errCode: -100 });
+    }
+  },
+
+  getListHasSignIn: async (req, res) => {
+    const params = req.params;
+
+    let allSignIn = await signInExamModel
+      .find({
+        chuong: params.chuong,
+        lesson: params.lesson,
+      })
+      .select("mssv listQuestion updatedAt");
+  },
+
   all: async (req, res) => {
-    let data = await signInExamModel.find({});
+    let data = await signInExamModel.find({
+      chuong: "1",
+      lesson: "1",
+    });
+    console.log(data);
     res.send(data);
   },
   dell: async (req, res) => {
-    let data = await signInExamModel.deleteMany({});
+    let data = await examModel.deleteMany({});
     res.send(data);
   },
 };
