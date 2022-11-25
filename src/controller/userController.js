@@ -2,6 +2,15 @@ const JWT = require("jsonwebtoken");
 const userModel = require("../model/user");
 
 const accessKey = process.env.ACCESSKEY;
+const verify = async (token) => {
+  try {
+    let data = await JWT.verify(token, accessKey);
+    return data;
+  } catch (error) {
+    return false;
+  }
+};
+
 module.exports = {
   login: async (req, res) => {
     const payload = req.body;
@@ -106,10 +115,34 @@ module.exports = {
     }
   },
 
+  getUserInfor: async (req, res) => {
+    const params = req.params;
+    try {
+      let data = await verify(req.headers.author);
+      if (!data || data.role !== "00") return res.json({ errCode: -1 });
+      let user = await userModel
+        .findOne({ mssv: params.mssv })
+        .select("name stars -_id");
+      if (user) {
+        let star = Object.keys(user.stars).reduce(
+          (accumulator, currentValue) =>
+            +accumulator + +user.stars[currentValue],
+          0
+        );
+        return res.json({ errCode: 0, data: { name: user.name, stars: star } });
+      }
+      return res.json({ errCode: -1 });
+    } catch (error) {
+      res.json({ error: -100 });
+    }
+  },
+
   all: async (req, res) => {
     let data = await userModel.find({});
+    console.log(data);
     res.send(data);
   },
+
   dell: async (req, res) => {
     let data = await userModel.deleteMany({});
     res.send(data);

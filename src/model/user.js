@@ -7,7 +7,7 @@ const User = new Schema(
     mssv: { type: String },
     name: { type: String, default: "" },
     password: { type: String, default: "" },
-    stars: { type: Object, default: {} },
+    stars: { type: Object, default: { pre: "0" } },
     role: { type: String, default: "01" }, //01: bth, 00:admin
   },
   { timestamps: true }

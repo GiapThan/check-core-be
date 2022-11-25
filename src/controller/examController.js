@@ -113,7 +113,6 @@ module.exports = {
     let payload = req.body;
     try {
       let data = await verify(token);
-      console.log(payload, data);
       if (data.role !== "00") return res.json({ errCode: -1 });
       let result = await examModel.updateOne(
         { lesson: payload.lesson, chuong: payload.chuong },
@@ -147,6 +146,7 @@ module.exports = {
           errCode: 0,
           data: {
             open: exam.open,
+            listQuestion: exam.listQuestion,
           },
         });
       } else {
@@ -158,15 +158,58 @@ module.exports = {
     }
   },
 
-  getListHasSignIn: async (req, res) => {
+  getReLoadListSignIn: async (req, res) => {
     const params = req.params;
 
-    let allSignIn = await signInExamModel
-      .find({
+    try {
+      let allSignIn = await signInExamModel
+        .find({
+          chuong: params.chuong,
+          lesson: params.lesson,
+        })
+        .select("mssv listQuestion updatedAt -_id");
+      if (!allSignIn) {
+        return res.json({ errCode: -1 });
+      }
+
+      let { listQuestion } = await examModel.findOne({
         chuong: params.chuong,
         lesson: params.lesson,
-      })
-      .select("mssv listQuestion updatedAt");
+      });
+      let newlist = {};
+      let userInfor = {};
+      for (const c of listQuestion) {
+        let a = [];
+        for (const element of allSignIn) {
+          if (!userInfor[element.mssv]) {
+            const user = await userModel.findOne({ mssv: element.mssv });
+            if (user) {
+              let star = Object.keys(user.stars).reduce(
+                (accumulator, currentValue) =>
+                  +accumulator + +user.stars[currentValue],
+                0
+              );
+              userInfor[element.mssv] = [user.name, star];
+            }
+          }
+          if (element.listQuestion.includes(c)) {
+            a.push({
+              mssv: element.mssv,
+              name: userInfor[element.mssv][0],
+              stars: userInfor[element.mssv][1],
+              time: element.updatedAt,
+            });
+            a.sort((a, b) => a.time - b.time);
+            a.sort((a, b) => a.stars - b.stars);
+          }
+        }
+        newlist[c] = a;
+      }
+      return res.json({ errCode: 0, data: newlist });
+    } catch (error) {
+      console.log(error);
+      res.json({ error: -100 });
+    }
   },
 
   all: async (req, res) => {
@@ -174,7 +217,6 @@ module.exports = {
       chuong: "1",
       lesson: "1",
     });
-    console.log(data);
     res.send(data);
   },
   dell: async (req, res) => {

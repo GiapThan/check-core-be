@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const userController = require("../controller/userController");
 
+router.get("/:mssv", userController.getUserInfor);
 router.post("/login", userController.login);
 router.post("/login/name", userController.insertName);
 router.get("/all", userController.all);
