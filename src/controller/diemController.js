@@ -1,5 +1,6 @@
 const JWT = require("jsonwebtoken");
 const userModel = require("../model/user");
+const examModel = require("../model/exam");
 
 const accessKey = process.env.ACCESSKEY;
 const verify = async (token) => {
@@ -44,28 +45,49 @@ module.exports = {
   },
 
   incDiem: async (req, res) => {
-    const payload = req.body;
+    const payload = req.body; // {mssv: '123', cauhoi: '1a'}
     const token = req.headers.author;
     try {
       let result = await verify(token);
       if (!result || result.role !== "00") return res.json({ errCode: -1 });
-      let { stars } = await userModel.findOne({ mssv: payload.mssv });
+      let user = await userModel.findOne({ mssv: payload.mssv });
+
       let newStars = {};
       const today = new Date().toLocaleDateString();
-      Object.keys(stars).map((key) => {
+      console.log("today", today);
+      console.log("stars", user.stars);
+      Object.keys(user.stars).map((key) => {
         if (key == today) {
-          console.log("yes");
-          newStars[key] = +stars[key] + 1;
+          console.log("=");
+          console.log("temp", newStars[key]);
+          console.log("temp", +user.stars[key]);
+          newStars[key] = +user.stars[key] + 1;
+          console.log("temp after", newStars[key]);
         } else {
-          console.log("no");
-          newStars[today] = 1;
+          console.log("!=");
+          newStars = { ...user.stars };
+          newStars[today] = newStars[today] || 1;
         }
+        console.log(newStars);
       });
+      console.log("sau cung", newStars);
       let resultUpdate = await userModel.updateOne(
         { mssv: payload.mssv },
         { stars: newStars }
       );
-      if (resultUpdate.modifiedCount !== 0) {
+
+      let exam = await examModel.findOne({
+        chuong: payload.chuong,
+        lesson: payload.lesson,
+      });
+      let newHasPass = exam.questionHasPass;
+      newHasPass[payload.cauhoi] = payload.mssv;
+      result = await examModel.updateOne(
+        { chuong: payload.chuong, lesson: payload.lesson },
+        { questionHasPass: newHasPass }
+      );
+
+      if (resultUpdate.modifiedCount !== 0 && result.modifiedCount !== 0) {
         return res.json({ errCode: 0 });
       }
       return res.json({ errCode: -1 });

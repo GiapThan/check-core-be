@@ -119,18 +119,16 @@ module.exports = {
     const params = req.params;
     try {
       let data = await verify(req.headers.author);
-      if (!data || data.role !== "00") return res.json({ errCode: -1 });
+      if (!data) return res.json({ errCode: -1 });
+
+      // with user
       let user = await userModel
         .findOne({ mssv: params.mssv })
-        .select("name stars -_id");
+        .select("-_id mssv name stars");
       if (user) {
-        let star = Object.keys(user.stars).reduce(
-          (accumulator, currentValue) =>
-            +accumulator + +user.stars[currentValue],
-          0
-        );
-        return res.json({ errCode: 0, data: { name: user.name, stars: star } });
+        return res.json({ errCode: 0, data: user });
       }
+
       return res.json({ errCode: -1 });
     } catch (error) {
       res.json({ error: -100 });

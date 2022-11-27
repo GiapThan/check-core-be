@@ -172,38 +172,41 @@ module.exports = {
         return res.json({ errCode: -1 });
       }
 
-      let { listQuestion } = await examModel.findOne({
+      let { listQuestion, questionHasPass } = await examModel.findOne({
         chuong: params.chuong,
         lesson: params.lesson,
       });
+      //questionHasPass = {'1a':'01'}
       let newlist = {};
       let userInfor = {};
       for (const c of listQuestion) {
-        let a = [];
-        for (const element of allSignIn) {
-          if (!userInfor[element.mssv]) {
-            const user = await userModel.findOne({ mssv: element.mssv });
-            if (user) {
-              let star = Object.keys(user.stars).reduce(
-                (accumulator, currentValue) =>
-                  +accumulator + +user.stars[currentValue],
-                0
-              );
-              userInfor[element.mssv] = [user.name, star];
+        if (!(c in questionHasPass)) {
+          let a = [];
+          for (const element of allSignIn) {
+            if (!userInfor[element.mssv]) {
+              const user = await userModel.findOne({ mssv: element.mssv });
+              if (user) {
+                let star = Object.keys(user.stars).reduce(
+                  (accumulator, currentValue) =>
+                    +accumulator + +user.stars[currentValue],
+                  0
+                );
+                userInfor[element.mssv] = [user.name, star];
+              }
+            }
+            if (element.listQuestion.includes(c)) {
+              a.push({
+                mssv: element.mssv,
+                name: userInfor[element.mssv][0],
+                stars: userInfor[element.mssv][1],
+                time: element.updatedAt,
+              });
+              a.sort((a, b) => a.time - b.time);
+              a.sort((a, b) => a.stars - b.stars);
             }
           }
-          if (element.listQuestion.includes(c)) {
-            a.push({
-              mssv: element.mssv,
-              name: userInfor[element.mssv][0],
-              stars: userInfor[element.mssv][1],
-              time: element.updatedAt,
-            });
-            a.sort((a, b) => a.time - b.time);
-            a.sort((a, b) => a.stars - b.stars);
-          }
+          newlist[c] = a;
         }
-        newlist[c] = a;
       }
       return res.json({ errCode: 0, data: newlist });
     } catch (error) {

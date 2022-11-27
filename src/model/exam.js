@@ -8,6 +8,7 @@ const Exam = new Schema(
     lesson: { type: String, default: "" },
     open: { type: Boolean, default: false },
     listQuestion: { type: Array, default: [] },
+    questionHasPass: { type: Object, default: {} },
   },
   { timestamps: true }
 );
