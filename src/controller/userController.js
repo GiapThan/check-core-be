@@ -1,5 +1,5 @@
-const JWT = require("jsonwebtoken");
-const userModel = require("../model/user");
+const JWT = require('jsonwebtoken');
+const userModel = require('../model/user');
 
 const accessKey = process.env.ACCESSKEY;
 const verify = async (token) => {
@@ -19,19 +19,19 @@ module.exports = {
       const preUser = await userModel.findOne({ mssv: payload.mssv });
       if (preUser) {
         //  có điểm nhưng chưa có pass
-        if (preUser.password === "") {
+        if (preUser.password === '') {
           const newUser = await userModel.updateOne(
             { mssv: preUser.mssv },
-            { password: payload.password }
+            { password: payload.password },
           );
           let token = JWT.sign(
             { name: preUser.name, mssv: preUser.mssv, role: preUser.role },
             accessKey,
-            { expiresIn: "1d" }
+            { expiresIn: '1d' },
           );
           data = {
             errCode: 0,
-            msg: "ok",
+            msg: 'ok',
             data: {
               name: newUser.name,
               mssv: newUser.mssv,
@@ -46,11 +46,11 @@ module.exports = {
           let token = JWT.sign(
             { name: preUser.name, mssv: preUser.mssv, role: preUser.role },
             accessKey,
-            { expiresIn: "1d" }
+            { expiresIn: '1d' },
           );
           data = {
             errCode: 0,
-            msg: "ok",
+            msg: 'ok',
             data: {
               name: preUser.name,
               mssv: preUser.mssv,
@@ -61,7 +61,7 @@ module.exports = {
           };
         } else {
           //        sai pass
-          data = { errCode: -1, msg: "fail" };
+          data = { errCode: -1, msg: 'fail' };
         }
       } else {
         //chưa có điểm
@@ -69,11 +69,11 @@ module.exports = {
         let token = JWT.sign(
           { name: newUser.name, mssv: newUser.mssv, role: newUser.role },
           accessKey,
-          { expiresIn: "1d" }
+          { expiresIn: '1d' },
         );
         data = {
           errCode: 0,
-          msg: "ok",
+          msg: 'ok',
           data: {
             name: newUser.name,
             mssv: newUser.mssv,
@@ -98,12 +98,12 @@ module.exports = {
         { name: name, mssv: user.mssv, role: user.role },
         accessKey,
         {
-          expiresIn: "1d",
-        }
+          expiresIn: '1d',
+        },
       );
       res.json({
         errCode: 0,
-        msg: "ok",
+        msg: 'ok',
         data: {
           name: user.name,
           accessToken: token,
@@ -121,10 +121,9 @@ module.exports = {
       let data = await verify(req.headers.author);
       if (!data) return res.json({ errCode: -1 });
 
-      // with user
       let user = await userModel
         .findOne({ mssv: params.mssv })
-        .select("-_id mssv name stars");
+        .select('-_id mssv name stars');
       if (user) {
         return res.json({ errCode: 0, data: user });
       }
@@ -135,14 +134,32 @@ module.exports = {
     }
   },
 
-  all: async (req, res) => {
-    let data = await userModel.find({});
-    console.log(data);
-    res.send(data);
-  },
+  getAllUserInfor: async (req, res) => {
+    try {
+      let data = await verify(req.headers.author);
+      if (data.role !== '00') return res.json({ errCode: -1 });
 
-  dell: async (req, res) => {
-    let data = await userModel.deleteMany({});
-    res.send(data);
+      let listUser = await userModel.find().select('-_id mssv name stars');
+
+      if (listUser) {
+        listUser.map((element, index) => {
+          //element = {mssv: '', name: '', stars: { pre: 0, '11/11': 3 }}
+          let stars = element.stars; // object
+
+          let totalStar = Object.keys(stars).reduce(
+            (accumulator, currentValue) => +accumulator + +stars[currentValue],
+            0,
+          );
+
+          listUser[index].stars = totalStar;
+          listUser.sort((a, b) => a.mssv - b.mssv);
+        });
+        return res.json({ errCode: 0, data: listUser });
+      }
+
+      return res.json({ errCode: -1 });
+    } catch (error) {
+      res.json({ error: -100 });
+    }
   },
 };
