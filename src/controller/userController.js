@@ -2,9 +2,14 @@ const JWT = require('jsonwebtoken');
 const userModel = require('../model/user');
 
 const accessKey = process.env.ACCESSKEY;
-const verify = async (token) => {
+const refreshKey = process.env.REFRESHKEY;
+const verify = async (token, type = 'access') => {
+  let key = accessKey;
+  if (type === 'refresh') {
+    key = refreshKey;
+  }
   try {
-    let data = await JWT.verify(token, accessKey);
+    let data = await JWT.verify(token, key);
     return data;
   } catch (error) {
     return false;
@@ -12,9 +17,42 @@ const verify = async (token) => {
 };
 
 module.exports = {
+  /* 
+  refreshToken: async (req, res, next) => {
+    const token = req.cookies['refreshToken'];
+    if (!token) return res.json({ errCode: -1 });
+    try {
+      let result = await verify(token, 'refresh');
+      // {name, mssv, role}
+      if (result) {
+        let data = JWT.sign(
+          {
+            name: result.name,
+            mssv: result.mssv,
+            role: result.role,
+          },
+          accessKey,
+          { expiresIn: '1d' },
+        );
+        return res.json({
+          errCode: 0,
+          data: {
+            accessToken: data,
+            name: result.name,
+            mssv: result.mssv,
+            role: result.role,
+          },
+        });
+      }
+    } catch (error) {
+      res.json({ errCode: -100 });
+    }
+  }, */
+
   login: async (req, res) => {
     const payload = req.body;
     let data;
+    let refreshToken;
     try {
       const preUser = await userModel.findOne({ mssv: payload.mssv });
       if (preUser) {
@@ -24,10 +62,19 @@ module.exports = {
             { mssv: preUser.mssv },
             { password: payload.password },
           );
-          let token = JWT.sign(
+          let accessToken = JWT.sign(
             { name: preUser.name, mssv: preUser.mssv, role: preUser.role },
             accessKey,
             { expiresIn: '1d' },
+          );
+          refreshToken = JWT.sign(
+            {
+              name: preUser.name,
+              mssv: preUser.mssv,
+              role: preUser.role,
+            },
+            refreshKey,
+            { expiresIn: '14d' },
           );
           data = {
             errCode: 0,
@@ -36,7 +83,7 @@ module.exports = {
               name: newUser.name,
               mssv: newUser.mssv,
               stars: newUser.stars,
-              accessToken: token,
+              accessToken: accessToken,
               role: newUser.role,
             },
           };
@@ -47,6 +94,11 @@ module.exports = {
             { name: preUser.name, mssv: preUser.mssv, role: preUser.role },
             accessKey,
             { expiresIn: '1d' },
+          );
+          refreshToken = JWT.sign(
+            { name: preUser.name, mssv: preUser.mssv, role: preUser.role },
+            refreshKey,
+            { expiresIn: '14d' },
           );
           data = {
             errCode: 0,
@@ -64,12 +116,17 @@ module.exports = {
           data = { errCode: -1, msg: 'fail' };
         }
       } else {
-        //chưa có điểm
+        //chưa có thong tin
         const newUser = await userModel.create(payload);
-        let token = JWT.sign(
+        let accessToken = JWT.sign(
           { name: newUser.name, mssv: newUser.mssv, role: newUser.role },
           accessKey,
           { expiresIn: '1d' },
+        );
+        refreshToken = JWT.sign(
+          { name: newUser.name, mssv: newUser.mssv, role: newUser.role },
+          refreshKey,
+          { expiresIn: '14d' },
         );
         data = {
           errCode: 0,
@@ -78,12 +135,18 @@ module.exports = {
             name: newUser.name,
             mssv: newUser.mssv,
             stars: newUser.stars,
-            accessToken: token,
+            accessToken: accessToken,
             role: newUser.role,
           },
         };
       }
-      return res.json(data);
+      return res
+        .cookie('refreshToken', refreshToken, {
+          sameSite: 'strict',
+          expires: new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000),
+          httpOnly: true,
+        })
+        .json(data);
     } catch (error) {
       console.log(error);
       res.json({ errCode: -100 });
@@ -94,22 +157,35 @@ module.exports = {
     let { name, mssv } = req.body;
     try {
       let user = await userModel.findOneAndUpdate({ mssv }, { name: name });
-      let token = JWT.sign(
+      let accessToken = JWT.sign(
         { name: name, mssv: user.mssv, role: user.role },
         accessKey,
         {
           expiresIn: '1d',
         },
       );
-      res.json({
-        errCode: 0,
-        msg: 'ok',
-        data: {
-          name: user.name,
-          accessToken: token,
-          role: user.role,
+      let refreshToken = JWT.sign(
+        { name: name, mssv: user.mssv, role: user.role },
+        refreshKey,
+        {
+          expiresIn: '14d',
         },
-      });
+      );
+      res
+        .cookie('refreshToken', refreshToken, {
+          sameSite: 'strict',
+          expires: new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000),
+          httpOnly: true,
+        })
+        .json({
+          errCode: 0,
+          msg: 'ok',
+          data: {
+            name: user.name,
+            accessToken: accessToken,
+            role: user.role,
+          },
+        });
     } catch (error) {
       res.json({ errCode: -100 });
     }
@@ -160,6 +236,17 @@ module.exports = {
       return res.json({ errCode: -1 });
     } catch (error) {
       res.json({ error: -100 });
+    }
+  },
+
+  logout: async (req, res) => {
+    console.log(req.headers.author);
+    try {
+      let data = await verify(req.headers.author);
+      if (!data) return res.json({ errCode: -1 });
+      return res.clearCookie('refreshToken').json({ errCode: 0 });
+    } catch (error) {
+      res.json({ errCode: -100 });
     }
   },
 };

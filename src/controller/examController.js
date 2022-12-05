@@ -1,7 +1,7 @@
-const JWT = require("jsonwebtoken");
-const examModel = require("../model/exam");
-const userModel = require("../model/user");
-const signInExamModel = require("../model/signinExam");
+const JWT = require('jsonwebtoken');
+const examModel = require('../model/exam');
+const userModel = require('../model/user');
+const signInExamModel = require('../model/signinExam');
 
 const accessKey = process.env.ACCESSKEY;
 
@@ -19,7 +19,7 @@ module.exports = {
     const payload = req.body;
     try {
       let data = await verify(req.headers.author);
-      if (data && data.role === "00") {
+      if (data && data.role === '00') {
         let pre = await examModel.findOne({
           chuong: payload.chuong,
           lesson: payload.lesson,
@@ -30,7 +30,7 @@ module.exports = {
 
         let data = await examModel.create(payload);
         if (data) {
-          res.json({ errCode: 0, msg: "ok" });
+          res.json({ errCode: 0, msg: 'ok' });
         } else {
           res.json({ errCode: -1 });
         }
@@ -45,7 +45,7 @@ module.exports = {
     const token = req.headers.author;
     try {
       let data = await verify(token);
-      if (!data) return res.json({ errCode: -2, msg: "" });
+      if (!data) return res.json({ errCode: -2, msg: '' });
       let exam = await examModel.findOne({
         chuong: params.chuong,
         lesson: params.lesson,
@@ -90,7 +90,7 @@ module.exports = {
           lesson: payload.lesson,
           mssv: payload.mssv,
         },
-        { listQuestion: payload.listQuestion }
+        { listQuestion: payload.listQuestion },
       );
       if (newSignIn.modifiedCount !== 0) {
         //update thanh coong
@@ -113,10 +113,10 @@ module.exports = {
     let payload = req.body;
     try {
       let data = await verify(token);
-      if (data.role !== "00") return res.json({ errCode: -1 });
+      if (data.role !== '00') return res.json({ errCode: -1 });
       let result = await examModel.updateOne(
         { lesson: payload.lesson, chuong: payload.chuong },
-        { open: payload.open }
+        { open: payload.open },
       );
       if (result.modifiedCount !== 0) {
         //thanh cong
@@ -135,7 +135,7 @@ module.exports = {
     try {
       //verify
       let data = await verify(token);
-      if (!data) return res.json({ errCode: -2, msg: "" });
+      if (!data) return res.json({ errCode: -2, msg: '' });
       ///
       let exam = await examModel.findOne({
         chuong: params.chuong,
@@ -167,7 +167,7 @@ module.exports = {
           chuong: params.chuong,
           lesson: params.lesson,
         })
-        .select("mssv listQuestion updatedAt -_id");
+        .select('mssv listQuestion updatedAt -_id');
       if (!allSignIn) {
         return res.json({ errCode: -1 });
       }
@@ -189,7 +189,7 @@ module.exports = {
                 let star = Object.keys(user.stars).reduce(
                   (accumulator, currentValue) =>
                     +accumulator + +user.stars[currentValue],
-                  0
+                  0,
                 );
                 userInfor[element.mssv] = [user.name, star];
               }
@@ -215,15 +215,21 @@ module.exports = {
     }
   },
 
-  all: async (req, res) => {
-    let data = await signInExamModel.find({
-      chuong: "1",
-      lesson: "1",
-    });
-    res.send(data);
+  getAllForm: async (req, res) => {
+    const token = req.headers.author;
+    try {
+      let result = await verify(token);
+      if (!result || result.role !== '00') return res.json({ errCode: -2 });
+      let exams = await examModel.find().select('-_id chuong lesson');
+      if (exams) return res.json({ errCode: 0, data: exams });
+      return res.json({ errCode: -1 });
+    } catch (error) {
+      res.json({ errCode: -100 });
+    }
   },
-  dell: async (req, res) => {
-    let data = await examModel.deleteMany({});
-    res.send(data);
+
+  deleteForm: async (req, res) => {
+    const params = req.params;
+    console.log(params);
   },
 };

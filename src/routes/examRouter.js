@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const examController = require('../controller/examController');
 
+router.get('/all', examController.getAllForm);
+router.delete('/delete/:chuong/:lesson', examController.deleteForm);
 router.get('/:chuong/:lesson', examController.getBaiTap);
 router.get('/manage/:chuong/:lesson', examController.getBaiTapManage);
 router.get('/reload/:chuong/:lesson', examController.getReLoadListSignIn);

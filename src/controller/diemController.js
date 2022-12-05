@@ -26,9 +26,10 @@ module.exports = {
           return res.json({ errCode: 0 });
         }
       } else {
+        let newList = data.stars;
         let a = await userModel.updateOne(
           { mssv: payload.mssv },
-          { stars: { pre: payload.diem } },
+          { stars: { ...newList, pre: payload.diem } },
         );
         if (a.modifiedCount !== 0) {
           return res.json({ errCode: 0 });
@@ -85,6 +86,30 @@ module.exports = {
     } catch (error) {
       console.log(error);
       return res.json({ errCode: -100 });
+    }
+  },
+
+  decDiem: async (req, res) => {
+    const payload = req.body; // {mssv: '123'}
+    try {
+      const result = await verify(req.headers.author);
+      if (!result && result.role !== '00') return res.json({ errCode: -1 });
+
+      let preUser = await userModel.findOne({ mssv: payload.mssv });
+      const today = new Date().toLocaleDateString();
+      if (today in preUser.stars && preUser.stars[today] != 0) {
+        preUser.stars[today] = +preUser.stars[today] - 1;
+      }
+
+      let newUser = await userModel.updateOne(
+        { mssv: payload.mssv },
+        { stars: preUser.stars },
+      );
+      if (newUser.modifiedCount !== 0) return res.json({ errCode: 0 });
+      res.json({ errCode: -1 });
+    } catch (error) {
+      console.log(error);
+      res.json({ errCode: -100 });
     }
   },
 };
